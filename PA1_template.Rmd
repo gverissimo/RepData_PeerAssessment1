@@ -20,15 +20,13 @@ ________________________________
   
 The raw dataset for this assignment 
 
-* Was downloaded from here: [Activity monitoring data ](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip)
-* 57KB compressed (.zip) and 351KB uncompressed (.csv)
+* Was downloaded from [Activity monitoring data ](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip)
+* The file was 57KB compressed (.zip) and 351KB uncompressed (.csv)
 * There are a total of 17,568 observations contained the dataset
-
-The variables included in this dataset are:
-
-1. steps: Number of steps taking in a 5-minute interval (missing values are coded as "NA")
-1. date: The date on which the measurement was taken in YYYY-MM-DD format
-1. interval: Identifier for the 5-minute interval in which measurement was taken
+* The variables included in this dataset are:
+    1. **steps**: Number of steps taking in a 5-minute interval (missing values are coded as "NA")
+    1. **date**: The date on which the measurement was taken in YYYY-MM-DD format
+    1. **interval**: Identifier for the 5-minute interval in which measurement was taken
 
 ________________________________ 
 ## Loading and preprocessing the data  
@@ -44,12 +42,11 @@ ________________________________
 First load required libraries:
 ```{r, echo=TRUE, results="hide", message=FALSE, warning=FALSE}
 ## Load  libraries
-library(reshape2)
 library(ggplot2)
 library(dplyr)
 ```
   
-We loaded the raw dataset (.csv) into a dataframe ('activity') using read.csv()
+We load the raw dataset (.csv) into a dataframe ('activity') using read.csv()
 
 ```{r}
 ## read raw dats (.csv file) into dataframe ('activity')
@@ -64,7 +61,7 @@ activity <- read.csv("./data/activity.csv",
 
 ```
 
-and converted variables (date, interval) to factors for later manipulation/reshaping.  
+and convert variables (date, interval) to factors for later manipulation/reshaping.  
 
 ```{r}
 ## convert string ("YYYY-MM-DD") to class 'date' and then to 'factor'
@@ -85,30 +82,37 @@ ________________________________
 1. *Make a histogram of the total number of steps taken each day. If you do not   understand the difference between a histogram and a barplot, research the difference   between them.*  
 1. *Calculate and report the mean and median of the total number of steps taken per day* 
   
-Using aggregate() to reshape the dataset around steps by date  in combination with the function sum(), we added up all the 5 minute intervals for each day into daily totals over the sample period (10/1/12 to 11/30/12).  
+By grouping the dataset by date and  summing, we get steps/day over the sample period 10/1/12-11/30/12: 
 
 ```{r}
-stepsPerDay <- aggregate(steps ~ date, data = activity, FUN = sum, na.rm = TRUE)
+## group intervals by date and  sum over days 
+stepsPerDay <- activity %>%
+        group_by(date) %>%
+        summarise(steps = sum(steps, na.rm = TRUE))
+```
+
+We can then create a histogram of daily totals and where you can see the most frequent steps per day is between 10,000 and 11,000: 
+
+```{r}
+## histogram of  total steps/day.
+par(mfrow=c(1,1))
+histInfo <- hist(stepsPerDay$steps, 
+                 xlim=c(0,25000), breaks = 25,
+                 col = "sky blue", border = "white",
+                 main="Histogram of Total Steps per Day",
+                 xlab="Steps", ylab="Frequency")
+histInfo[c("mids", "counts")]
+```
+
+```{r}
+## calculate mean & median
 meanStepsPerDay <- format(round(mean(stepsPerDay$steps), 1), 
                           scientific=FALSE, nsmall=1, big.mark=",")
 medianStepsPerDay <- format(round(median(stepsPerDay$steps), 1), 
                             scientific=FALSE, nsmall=1, big.mark=",")
 ```
-
-We then created a histogram of those daily totals where you can see the subject most frequently walked between 10,000 and 11,000 steps each day: 
-
-```{r}
-## Make a histogram of the total number of steps taken each day. If you do not understand the difference between a histogram and a barplot, research the difference between them.*
-par(mfrow=c(1,1), mar=c(4,4,4,2), oma=c(1,1,1,0))
-histInfo <- hist(stepsPerDay$steps, 
-     xlim=c(0,25000), breaks = 25,
-     col = "sky blue", border = "white",
-     main="Histogram of Total Steps per Day",
-     xlab="Steps", ylab="Frequency")
-histInfo[c("mids", "counts")]
-```
-
-The mean steps/day over the period was `r meanStepsPerDay` and the median was `r medianStepsPerDay`.  
+We also calculate  **mean steps/day: `r meanStepsPerDay`**  
+and **median steps/day: `r medianStepsPerDay`**.
 
 ________________________________ 
 ## What is the average daily activity pattern?  
@@ -118,13 +122,18 @@ ________________________________
 1. *Make a time series plot (i.e. - type="l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)*  
 1. *Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?*  
 
-Again using aggregate() --this time reshaping the dataset around steps by 5-min interval-- in combination with the function mean(), we calculated the mean for each 5min interval over the sample period:
+Grouping the dataset by interval and calculating the mean, we arrive at average steps/interval across all of the days in the sample period.
 
 ```{r}
-averageSteps <- aggregate(steps ~ interval, data = activity, mean, na.rm=TRUE)
+averageSteps <- activity %>%
+        group_by(interval) %>%
+        summarise(steps = mean(steps,na.rm = TRUE))
 maxAverageSteps <- averageSteps[which.max(averageSteps$steps), ]
+```
 
-par(mfrow=c(1,1), mar=c(4,4,4,2), oma=c(1,1,1,0))
+Which we then plot:
+```{r}
+par(mfrow=c(1,1))
 plot(as.numeric(as.character(averageSteps$interval)), averageSteps$steps, 
      type = "l", 
      lwd = 2, col = "deep sky blue 2",
@@ -132,6 +141,7 @@ plot(as.numeric(as.character(averageSteps$interval)), averageSteps$steps,
      xlab = "5-min interval", ylab = "Average steps per interval" )
 ```
 
+We also find the highest average number of steps occurred at **interval `r maxAverageSteps$interval`** with **`r round(maxAverageSteps$steps,,0)` steps**.
 
 ________________________________ 
 ## Imputing missing values  
@@ -147,64 +157,40 @@ ________________________________
  - *Do these values differ from the estimates from the first part of the assignment?*  
   - *What is the impact of imputing missing data on the estimates of the total daily number of steps?*  
 
-Going back to the original (long) dataset, we counted the total quantity of missing step samples:
+We can also sum up all of the intervals in the dataset where steps is NA:
 
 ```{r}
 missingValues <- sum(is.na(activity$steps))
 ```
 
-and found there are `r missingValues` missing values. 
+and we find there are **`r missingValues` missing values**. 
   
-Looking at missing values in the dataset, we saw  the NAs are grouped in terms of entire days. **So we decided to impute these missing days with the average day for the sample period** that we calculated earlier *(ie - replace each NA sample interval with the corresponding average).*  
-  
-We did this by first reshaping the dataset into wide format (activityWide) to move the dates (10/1~11/30) into separate columns.
+Looking at the dataset, we noticed the NAs were all grouped in terms of entire days and opted to **correct for missing days by imputing each NA interval with its respective average** (over the sample period).
 
+We do this by creating a new dataframe ('actvityImputed') and using mutate() and ifelse() to replace interval NAs with the respective averages calculated above ('averageSteps'):
 ```{r}
-## reshape long->wide to facilitate impute of NAs
-activityWide <- dcast(activity, interval ~ date, value.var="steps")
+activityImputed <- activity
+activityImputed <- activityImputed %>%
+        mutate(steps = ifelse(is.na(steps), averageSteps[interval, ]$steps, steps))
 ```
 
-We then looped over those dates, filtered each date for intervals containing NA values ('missingVal') and replaced those missing values with the corresponding averages calculated earlier ('averageSteps').  
-
-*(Note that we also opted to round those imputed  values to the nearest whole step)*
-
+We now repeat the total steps/day and average steps/interval calculations with the imputed dataset:
 ```{r}
-## setup loop variables
-firstDate <- which(colnames(activityWide)=="2012-10-01")
-lastDate <- which(colnames(activityWide)=="2012-11-30")
-activityWideImputed <- activityWide
-
-## loop over daterange (Oct/1 to Nov/30)
-for (i in firstDate:lastDate) {
-        ## identify NA's for loop date
-        missingVal <- is.na(activityWideImputed[ ,i])
-        ## replace interval NA's with average steps for that interval (rounded to whole steps)
-        activityWideImputed[missingVal, i] <- round(averageSteps$steps[missingVal],0)
-}
-```
-
-We then reshaped the data back to long format ('activityImputed') and recalculated the average steps per day ('stepsPerDayImputed') and average steps per 5min interval (averageStepsImputed) -- similar to above.
-
-```{r}
-## reshape wide->long
-activityImputed <- melt(activityWideImputed, 
-                        id.vars=c("interval"), 
-                        variable.name="date",
-                        value.name="steps")
-
 ## Calculate steps per day (imputed NA)
-stepsPerDayImputed <- aggregate(steps ~ date, data = activityImputed, sum, na.rm = TRUE)
-averageStepsImputed <- aggregate(steps ~ interval, data = activityImputed, mean, na.rm=TRUE)
+stepsPerDayImputed <- activityImputed %>%
+        group_by(date) %>%
+        summarise(steps = sum(steps,na.rm = TRUE))
+averageStepsImputed <- activityImputed %>%
+        group_by(interval) %>%
+        summarise(steps = sum(steps,na.rm = TRUE))
 ```
 
 ________________________________ 
 ## Make a histogram of the total number of steps taken each day. If you do not understand the difference between a histogram and a barplot, research the difference between them.*
 
-For comparison, we plotted both average daily steps as well as a histogram of steps/day and unimputed and imputed:
-
+For comparison, we  plot side-by-side the average steps/interval for the unimputed and the imputed datasets:
 ```{r}
-par(mfrow=c(1,2), mar=c(4,4,4,2), oma=c(1,1,1,0))
-
+par(mfrow=c(1,2))
 plot(as.numeric(as.character(averageSteps$interval)), averageSteps$steps, 
      type = "l", 
      lwd = 2, col = "deep sky blue 2",
@@ -215,7 +201,11 @@ plot(as.numeric(as.character(averageStepsImputed$interval)), averageStepsImputed
      lwd = 2, col = "deep sky blue 2",
      main = "Average Steps/Interval \n(imputed)",
      xlab = "5-min interval", ylab = "Number of Steps/Interval" )
+```
 
+and similarly, histograms of steps/day unimputed and imputed:
+```{r}
+par(mfrow=c(1,2))
 hist(stepsPerDay$steps, 
      xlim=c(0,25000), breaks = 25,
      ylim=c(0,20),
@@ -228,21 +218,22 @@ hist(stepsPerDayImputed$steps,
      col = "sky blue", border = "white",
      main="Histogram of Total Steps/Day \n(imputed)",
      xlab="Number of Steps/Day", ylab="Frequency")
-
-meanStepsPerDayImputed <- format(round(mean(stepsPerDayImputed$steps), 1), 
-                          scientific=FALSE, nsmall=1, big.mark=",")
-medianStepsPerDayImputed <- format(round(median(stepsPerDayImputed$steps), 1), 
-                            scientific=FALSE, nsmall=1, big.mark=",")
 ```
 
-Imputing NAs as described above, the mean & median statistics changed very little:  
+```{r}
+meanStepsPerDayImputed <- format(round(mean(stepsPerDayImputed$steps), 1), 
+                                 scientific=FALSE, nsmall=1, big.mark=",")
+medianStepsPerDayImputed <- format(round(median(stepsPerDayImputed$steps), 1), 
+                                   scientific=FALSE, nsmall=1, big.mark=",")
+```
 
-* mean: `r meanStepsPerDayImputed`  (vs. `r meanStepsPerDay` unimputed)  
-* median: `r meanStepsPerDayImputed` (vs. `r medianStepsPerDay`unimputed)  
+We find that  imputing missing intervals with their corresponding averages has a small impact on the mean & median values:  
 
-We attribute this to there being (1) just 8 missing days (out of 61) and (2) we subsititued average days for the missing ones (which would only strengthen the mean).  
+* mean: `r meanStepsPerDayImputed` average steps/day  vs. `r meanStepsPerDay` unimputed  
+* median: `r meanStepsPerDayImputed` average steps/day vs. `r medianStepsPerDay`unimputed       
+We attribute this to the fact that by replacing the missing days (8 of 61) with average ones is primarily strengthening the mean of the resulting dataset.  
 
-It is interesting to note (again, because we're imputing the average day for the missing days) that the the only  change to the histogram was to heighten the central peak --which is to be expected.  
+You can better see the effect in the histograms where the 8 missing days in the 0 bin move to the 10k (average) bin when imputed.
 
 ________________________________ 
 ## Are there differences in activity patterns between weekdays and weekends?  
@@ -263,23 +254,28 @@ activityImputed2$weekDayEnd <- as.factor(activityImputed2$weekDayEnd)
 
 ```
 
-And then reshaped the data around steps by interval (similar to above) and created the comparison plot using ggplot:
+And grouping the data once again by interval
 ```{r}
-stepsPerDayImputed2 <- aggregate(steps ~ interval + weekDayEnd, activityImputed2, mean)
+activityImputed2 <- activityImputed2 %>%
+        group_by(weekDayEnd, interval) %>%
+        summarise(steps = mean(steps,na.rm = TRUE))
+```
 
-pl <- ggplot(filter(stepsPerDayImputed2, weekDayEnd %in% c("Weekend", "Weekday")),
+we can then compare weekdays vs. weekend activity using ggplot:
+```{r}
+pl <- ggplot(filter(activityImputed2, weekDayEnd %in% c("Weekend", "Weekday")),
              aes(x=as.numeric(as.character(interval)), y=steps, color=weekDayEnd) ) +
         geom_line() +
         facet_grid(weekDayEnd ~ ., scales="fixed", space="fixed") +
         labs(x="interval", 
-             y="number of steps/day",
+             y="number of steps/interval",
              color= "Part of Week",
              title="Average Steps/Interval",
              subtitle="Comparison of Weekends vs. Weekdays"
              ) +
         theme(
                 legend.position = "none",
-                plot.margin = unit(c(1.5,1,1.5,1), "cm"),
+                ## plot.margin = unit(c(1.5,1,1.5,1), "cm"),
                 strip.text.y = element_text(face="bold")
                 )
 print(pl)
